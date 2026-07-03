@@ -69,3 +69,4 @@ Testing/
 .cache/
 .vs/
 .__pycache__/
+/plugins/__pycache__

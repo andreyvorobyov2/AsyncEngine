@@ -26,6 +26,8 @@ public:
     {
         eMethInitPython = 0,
 		eMethSelfTest,
+		eMethRunPlugin,
+		eMethSendMessageToPlugin,
         eLastMethod     // Always last
     };
 
@@ -70,6 +72,8 @@ private:
 
     bool AsyncEngine::InitPython(tVariant* paParams, const long lSizeArray);
     bool AsyncEngine::SelfTest();
+    bool AsyncEngine::RunPlugin(tVariant* paParams, const long lSizeArray);
+    bool AsyncEngine::SendMessageToPlugin(tVariant* paParams, const long lSizeArray);
 
     // Интерфейсы связи с платформой 1С
     IAddInDefBase* m_iConnect = nullptr;

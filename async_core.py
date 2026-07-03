@@ -11,14 +11,22 @@
 
 import logging
 import asyncio
+import importlib
+import json
 import random
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict
 
 # Настройка логирования для отладки
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-_cpp_callback: Optional[Callable[[str], None]] = None
+_cpp_callback: Optional[Callable[[str, str], None]] = None
 _loop: Optional[asyncio.AbstractEventLoop] = None
+_active_plugins: Dict[str, asyncio.Task] = {}
+
+# Хранилище очередей для отправки команд ИЗ 1С В Плагины
+# Ключ: task_id, Значение: asyncio.Queue
+_plugin_queues: Dict[str, asyncio.Queue] = {}
+
 
 async def _keep_alive() -> None:
     """Удерживает event loop активным (заглушка)."""
@@ -84,3 +92,56 @@ def self_test() -> None:
         asyncio.run_coroutine_threadsafe(_self_test_task(1, 2.0), _loop)
         asyncio.run_coroutine_threadsafe(_self_test_task(2, 5.0), _loop)
         asyncio.run_coroutine_threadsafe(_self_test_task(3, 1.0), _loop)
+
+
+def run_plugin(plugin_name: str, task_id: str, params_json: str) -> None:
+    """Динамически загружает плагин и инициализирует."""
+    global _loop, _cpp_callback
+    if not _loop:
+        logging.error("Event loop is not running")
+        return
+
+    async def _plugin_wrapper():
+        # Создаем индивидуальную очередь для этого экземпляра плагина
+        inbound_queue = asyncio.Queue()
+        _plugin_queues[task_id] = inbound_queue
+
+        try:
+            module = importlib.import_module(f"plugins.{plugin_name}")
+            
+            def plugin_callback(event_type: str, data_str: str):
+                if _cpp_callback:
+                    _cpp_callback(f"{plugin_name}:{event_type}", json.dumps({"task_id": task_id, "payload": data_str}))
+
+            params = json.loads(params_json) if params_json else {}
+            
+            # Передаем inbound_queue третьим параметром в плагин!
+            await module.main(params, plugin_callback, inbound_queue)
+            
+        except Exception as e:
+            logging.error(f"Error executing plugin {plugin_name}: {e}")
+            if _cpp_callback:
+                _cpp_callback(f"{plugin_name}:Error", json.dumps({"task_id": task_id, "error": str(e)}))
+        finally:
+            # Очищаем ресурсы при завершении корутины плагина
+            _plugin_queues.pop(task_id, None)
+            _active_plugins.pop(task_id, None)
+
+    task = asyncio.run_coroutine_threadsafe(_plugin_wrapper(), _loop)
+    _active_plugins[task_id] = task
+
+
+def send_to_plugin(task_id: str, command_json: str) -> None:
+    """
+    Новый метод для C++.
+    Позволяет отправить команду/сообщение в уже работающий плагин по task_id.
+    """
+    global _loop
+    if not _loop:
+        return
+        
+    if task_id in _plugin_queues:
+        # Безопасно помещаем команду в очередь плагина внутри Event Loop
+        _loop.call_soon_threadsafe(_plugin_queues[task_id].put_nowait, command_json)
+    else:
+        logging.warning(f"Plugin task {task_id} not found or already closed.")

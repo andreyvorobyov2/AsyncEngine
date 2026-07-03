@@ -22,6 +22,8 @@ static const wchar_t* g_MethodNames[] =
 {
     L"InitPython",
 	L"SelfTest",
+	L"RunPlugin",
+	L"SendMessageToPlugin"
 };
 
 
@@ -282,8 +284,9 @@ const WCHAR_T* AsyncEngine::GetMethodName(const long lMethodNum, const long lMet
 
 long AsyncEngine::GetNParams(const long lMethodNum)
 {
-    if (lMethodNum == eMethInitPython) 
-        return 3;
+    if (lMethodNum == eMethInitPython) return 3;
+	if (lMethodNum == eMethRunPlugin) return 3;
+	if (lMethodNum == eMethSendMessageToPlugin) return 2;
     return 0; 
 }
 
@@ -301,6 +304,8 @@ bool AsyncEngine::CallAsProc(const long lMethodNum, tVariant* paParams, const lo
     {
         case eMethInitPython: return this->InitPython(paParams, lSizeArray);
 		case eMethSelfTest: return this->SelfTest();
+		case eMethRunPlugin: return this->RunPlugin(paParams, lSizeArray);
+		case eMethSendMessageToPlugin: return this->SendMessageToPlugin(paParams, lSizeArray);
         default: return false;
     }
 }
@@ -371,6 +376,85 @@ void AsyncEngine::OnAsyncResult(const std::wstring& event, const std::wstring& d
 
         delete[] wSource; delete[] wEvent; delete[] wData;
     }
+}
+
+bool AsyncEngine::RunPlugin(tVariant* paParams, const long lSizeArray)
+{
+    if (lSizeArray < 3 || paParams[0].vt != VTYPE_PWSTR || paParams[1].vt != VTYPE_PWSTR || paParams[2].vt != VTYPE_PWSTR)
+    {
+        addError(ADDIN_E_VERY_IMPORTANT, L"AsyncEngine", L"Invalid parameters. Expected (String, String, String).", 0);
+        return false;
+    }
+
+    wchar_t* cPluginName = nullptr;
+    wchar_t* cTaskId = nullptr;
+    wchar_t* cParamsJson = nullptr;
+
+    convFromShortWchar(&cPluginName, (WCHAR_T*)paParams[0].pwstrVal);
+    convFromShortWchar(&cTaskId, (WCHAR_T*)paParams[1].pwstrVal);
+    convFromShortWchar(&cParamsJson, (WCHAR_T*)paParams[2].pwstrVal);
+
+    std::unique_ptr<wchar_t[]> autoPlugin(cPluginName);
+    std::unique_ptr<wchar_t[]> autoTask(cTaskId);
+    std::unique_ptr<wchar_t[]> autoParams(cParamsJson);
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+
+        // Конвертируем в UTF-8 для Python
+        std::string pyPluginName = std::filesystem::path(cPluginName).string();
+        std::string pyTaskId = std::filesystem::path(cTaskId).string();
+        std::string pyParamsJson = std::filesystem::path(cParamsJson).string();
+
+        // Вызываем функцию маршрутизатора в async_core.py
+        m_pyModule.attr("run_plugin")(pyPluginName, pyTaskId, pyParamsJson);
+    }
+    catch (py::error_already_set& e)
+    {
+        std::string errStr = e.what();
+        std::wstring wErrStr(errStr.begin(), errStr.end());
+        addError(ADDIN_E_VERY_IMPORTANT, L"Python RunPlugin Error", wErrStr.c_str(), 0);
+        return false;
+    }
+    return true;
+}
+
+bool AsyncEngine::SendMessageToPlugin(tVariant* paParams, const long lSizeArray)
+{
+    if (lSizeArray < 2 || paParams[0].vt != VTYPE_PWSTR || paParams[1].vt != VTYPE_PWSTR)
+    {
+        addError(ADDIN_E_VERY_IMPORTANT, L"AsyncEngine", L"Invalid parameters. Expected (String, String).", 0);
+        return false;
+    }
+
+    wchar_t* cTaskId = nullptr;
+    wchar_t* cCommandJson = nullptr;
+
+    convFromShortWchar(&cTaskId, (WCHAR_T*)paParams[0].pwstrVal);
+    convFromShortWchar(&cCommandJson, (WCHAR_T*)paParams[1].pwstrVal);
+
+    std::unique_ptr<wchar_t[]> autoTask(cTaskId);
+    std::unique_ptr<wchar_t[]> autoCommand(cCommandJson);
+
+    try
+    {
+        py::gil_scoped_acquire acquire;
+
+        std::string pyTaskId = std::filesystem::path(cTaskId).string();
+        std::string pyCommandJson = std::filesystem::path(cCommandJson).string();
+
+        // Вызываем функцию маршрутизации в async_core.py
+        m_pyModule.attr("send_to_plugin")(pyTaskId, pyCommandJson);
+    }
+    catch (py::error_already_set& e)
+    {
+        std::string errStr = e.what();
+        std::wstring wErrStr(errStr.begin(), errStr.end());
+        addError(ADDIN_E_VERY_IMPORTANT, L"Python SendMessage Error", wErrStr.c_str(), 0);
+        return false;
+    }
+    return true;
 }
 
 bool AsyncEngine::SelfTest()
