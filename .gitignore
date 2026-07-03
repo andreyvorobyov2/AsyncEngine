@@ -68,5 +68,8 @@ vcpkg_installed/
 Testing/
 .cache/
 .vs/
-.__pycache__/
+__pycache__/
+*.pyc
+*.pyo
 /plugins/__pycache__
+.settings/

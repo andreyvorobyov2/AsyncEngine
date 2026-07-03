@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdclass:DataProcessor xmlns:mdclass="http://g5.1c.ru/v8/dt/metadata/mdclass" uuid="76333c44-d673-4b88-86bf-2805cfe911ab">
+  <producedTypes>
+    <objectType typeId="cf29b49e-8db8-428f-bbe1-549b2312b8a3" valueTypeId="e4bf5cec-8b40-4b66-95d9-5c2ba0372b3e"/>
+    <managerType typeId="9c7b9ae5-9e92-407f-9b75-31cc274492a0" valueTypeId="90d342dc-9efa-44ca-a71d-9d946fe032f2"/>
+  </producedTypes>
+  <name>AsyncEngine</name>
+  <synonym>
+    <key>en</key>
+    <value>Async engine</value>
+  </synonym>
+  <useStandardCommands>true</useStandardCommands>
+  <defaultForm>DataProcessor.AsyncEngine.Form.Form</defaultForm>
+  <forms uuid="e46a119a-6df5-447e-b7f6-5c36d33b50f9">
+    <name>Form</name>
+    <synonym>
+      <key>en</key>
+      <value>Form</value>
+    </synonym>
+    <usePurposes>PersonalComputer</usePurposes>
+    <usePurposes>MobileDevice</usePurposes>
+  </forms>
+</mdclass:DataProcessor>

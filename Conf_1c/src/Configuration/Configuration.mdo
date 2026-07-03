@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mdclass:Configuration xmlns:mdclass="http://g5.1c.ru/v8/dt/metadata/mdclass" uuid="e296a8a8-3821-4629-b148-491b8d72da40">
+  <name>Configuration</name>
+  <containedObjects classId="9cd510cd-abfc-11d4-9434-004095e12fc7" objectId="2b7ad050-ede4-4681-b6fa-be10906733c7"/>
+  <containedObjects classId="9fcd25a0-4822-11d4-9414-008048da11f9" objectId="ee525a0f-79fe-425a-8e6d-191f28f64b28"/>
+  <containedObjects classId="e3687481-0a87-462c-a166-9f34594f9bba" objectId="86705638-930c-4ed3-ae85-e7939eea401b"/>
+  <containedObjects classId="9de14907-ec23-4a07-96f0-85521cb6b53b" objectId="e7346bd7-261f-4473-b473-6ce1eedbaa4e"/>
+  <containedObjects classId="51f2d5d8-ea4d-4064-8892-82951750031e" objectId="46dc6fd7-afaa-4848-ac34-0b4e6e1b798e"/>
+  <containedObjects classId="e68182ea-4237-4383-967f-90c1e3370bc7" objectId="32836680-0f55-46b5-964f-217caedbf006"/>
+  <containedObjects classId="fb282519-d103-4dd3-bc12-cb271d631dfc" objectId="92a67172-87de-46ba-93cb-dce634d12a4e"/>
+  <defaultRunMode>ManagedApplication</defaultRunMode>
+  <usePurposes>PersonalComputer</usePurposes>
+  <usedMobileApplicationFunctionalities>
+    <functionality>
+      <use>true</use>
+    </functionality>
+    <functionality>
+      <functionality>OSBackup</functionality>
+      <use>true</use>
+    </functionality>
+  </usedMobileApplicationFunctionalities>
+  <defaultLanguage>Language.English</defaultLanguage>
+  <dataLockControlMode>Managed</dataLockControlMode>
+  <objectAutonumerationMode>NotAutoFree</objectAutonumerationMode>
+  <modalityUseMode>DontUse</modalityUseMode>
+  <compatibilityMode>8.3.27</compatibilityMode>
+  <languages uuid="4d8bd3ea-832f-43ad-9eee-de8db8bd618a">
+    <name>English</name>
+    <synonym>
+      <key>en</key>
+      <value>English</value>
+    </synonym>
+    <languageCode>en</languageCode>
+  </languages>
+  <dataProcessors>DataProcessor.AsyncEngine</dataProcessors>
+</mdclass:Configuration>
