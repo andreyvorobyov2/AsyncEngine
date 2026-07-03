@@ -1,80 +1,78 @@
 import asyncio
 import json
+import socketio
 
 async def main(params: dict, callback: callable, inbound_queue: asyncio.Queue):
     host = params.get("host", "127.0.0.1")
-    port = params.get("port", 8888)
+    port = params.get("port", 9000) 
+    url = f"http://{host}:{port}"
     
-    reader, writer = None, None
-    try:
-        # 1. Подключаемся к серверу
-        reader, writer = await asyncio.open_connection(host, port)
-        callback("Connected", f"Connected to {host}:{port}")
-        
-        # Флаг для контролируемого выхода
-        running = True
+    # Создаем асинхронного Socket.IO клиента
+    sio = socketio.AsyncClient()
+    running = True
 
-        # Корутина чтения данных из сокета сервера
-        async def read_from_socket():
-            nonlocal running
-            try:
-                while running:
-                    data = await reader.read(1024)
-                    if not data:
-                        # Сервер закрыл соединение с той стороны
-                        callback("Disconnected", "Server closed connection.")
-                        break
-                    message = data.decode('utf-8').strip()
-                    callback("MessageReceived", message)
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                callback("Error", f"Socket read error: {str(e)}")
-            finally:
-                running = False
+    # --- Обработчики событий Socket.IO ---
+    
+    @sio.event
+    async def connect():
+        callback("Connected", f"Successfully connected to Socket.IO server at {url}")
 
-        # Корутина обработки команд от 1С из очереди
-        async def read_from_1c():
-            nonlocal running
-            try:
-                while running:
-                    # Ждем команду из 1С
-                    command_json_str = await inbound_queue.get()
-                    command_data = json.loads(command_json_str)
+    @sio.event
+    async def disconnect():
+        callback("Disconnected", "Disconnected from Socket.IO server.")
+        nonlocal running
+        running = False
+
+    @sio.event
+    async def message_from_server(data):
+        """Ловим броадкаст или персональные сообщения от сервера"""
+        callback("MessageReceived", json.dumps(data, ensure_ascii=False))
+
+    @sio.event
+    async def connect_error(data):
+        callback("Error", f"Connection failed: {data}")
+
+    # --- Задача для обработки команд из 1С ---
+    async def read_from_1c():
+        nonlocal running
+        try:
+            while running and sio.connected:
+                command_json_str = await inbound_queue.get()
+                command_data = json.loads(command_json_str)
+                
+                action = command_data.get("action")
+                payload = command_data.get("payload", "")
+
+                if action == "send":
+                    # Отправляем кастомное событие, которое ждет ваш сервер
+                    # Структура payload должна соответствовать тому, что ждет сервер
+                    await sio.emit("message_from_client", payload)
+                    callback("MessageSent", json.dumps(payload, ensure_ascii=False))
                     
-                    action = command_data.get("action")
-                    payload = command_data.get("payload", "")
+                elif action == "disconnect":
+                    callback("Disconnected", "Disconnect requested by user.")
+                    await sio.disconnect()
+                    break
+                    
+                inbound_queue.task_done()
+        except asyncio.CancelledError:
+            pass
+        finally:
+            running = False
 
-                    if action == "send":
-                        # Отправка сообщения в сокет
-                        if writer and not writer.is_closing():
-                            writer.write(f"{payload}\n".encode('utf-8'))
-                            await writer.drain()
-                            callback("MessageSent", payload)
-                            
-                    elif action == "disconnect":
-                        # Запрос на отключение от 1С
-                        callback("Disconnected", "Disconnect requested by user.")
-                        break
-                        
-                    inbound_queue.task_done()
-            except asyncio.CancelledError:
-                pass
-            finally:
-                running = False
-
-        # Запускаем обе задачи параллельно и ждем, пока одна из них не завершится
-        await asyncio.gather(read_from_socket(), read_from_1c(), return_exceptions=True)
+    # --- Основной цикл запуска ---
+    try:
+        # Подключаемся к Socket.IO серверу
+        await sio.connect(url)
+        
+        # Запускаем задачу чтения из очереди 1С
+        # Чтение из сокета Socket.IO берет на себя под капотом при connect()
+        await read_from_1c()
 
     except Exception as e:
-        callback("Error", f"Connection failed: {str(e)}")
+        callback("Error", f"SocketIO Client error: {str(e)}")
         
     finally:
-        # Гарантированное закрытие сокета при выходе из метода main
-        if writer:
-            writer.close()
-            try:
-                await writer.wait_closed()
-            except:
-                pass
+        if sio.connected:
+            await sio.disconnect()
         callback("System", "Chat client background task stopped completely.")

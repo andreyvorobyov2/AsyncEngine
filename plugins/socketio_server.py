@@ -87,7 +87,7 @@ async def main(params: dict, callback: callable, inbound_queue: asyncio.Queue):
                         
                 elif action == "stop":
                     # Запрос на остановку сервера из 1С
-                    callback("ServerStopping", "Shutdown requested by 1C.")
+                    callback("ServerStopped", "Shutdown requested by 1C.")
                     break
                     
                 inbound_queue.task_done()
