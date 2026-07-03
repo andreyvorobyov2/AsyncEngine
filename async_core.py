@@ -25,6 +25,7 @@ async def _keep_alive() -> None:
     while True:
         await asyncio.sleep(3600)
 
+
 async def _self_test_task(task_id: int, delay: float) -> None:
     """ Вспомогательная корутина для тестирования асинхронного движка."""
     global _cpp_callback
@@ -53,13 +54,14 @@ def start_async_engine(callback_func: Callable[[str], None]) -> None:
         _loop.run_until_complete(_keep_alive())
     except asyncio.CancelledError:
         # Перехватываем штатную отмену задач при остановке
-        logging.info("Главная задача вечного цикла была отменена (остановка двигателя).")
+        logging.info("Главная задача вечного цикла была отменена.")
     except Exception as e:
         logging.error(f"Критическая ошибка в работе Event Loop: {e}")
     finally:
         # Корректно закрываем сам loop после остановки всех задач
         _loop.close()
         logging.info("Ресурсы Event Loop успешно освобождены.")
+
 
 def stop_async_engine() -> None:
     """Останавливает все активные задачи и завершает работу Event Loop."""
