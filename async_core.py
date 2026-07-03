@@ -133,7 +133,6 @@ def run_plugin(plugin_name: str, task_id: str, params_json: str) -> None:
 
 def send_to_plugin(task_id: str, command_json: str) -> None:
     """
-    Новый метод для C++.
     Позволяет отправить команду/сообщение в уже работающий плагин по task_id.
     """
     global _loop

@@ -117,3 +117,4 @@ async def main(params: dict, callback: callable, inbound_queue: asyncio.Queue):
         if sio.connected:
             await sio.disconnect()
         callback("System", "Chat client background task stopped completely.")
+
