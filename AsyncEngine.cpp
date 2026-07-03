@@ -72,10 +72,7 @@ AsyncEngine::AsyncEngine()
     m_iConnect = nullptr;
 }
 
-AsyncEngine::~AsyncEngine() 
-{
-	int s = 0; // Заглушка для отладки, если потребуется
-}
+AsyncEngine::~AsyncEngine() {}
 
 bool AsyncEngine::Init(void* pConnection) 
 { 
@@ -126,10 +123,9 @@ bool AsyncEngine::InitPython(tVariant* paParams, const long lSizeArray)
             py::module_ sys = py::module_::import("sys");
 
             // Конвертация путей в UTF-8 для корректной интеграции с Python модулями
-            std::string utf8Path = std::filesystem::path(wstrPath).string();
-            std::string utf8Module = std::filesystem::path(wstrModule).string();
+            sys.attr("path").attr("append")(wstrPath);
 
-            sys.attr("path").attr("append")(utf8Path);
+            std::string utf8Module = std::filesystem::path(wstrModule).u8string();
             m_pyModule = py::module_::import(utf8Module.c_str());
         }
 
@@ -163,45 +159,38 @@ void AsyncEngine::Done()
 {
     try
     {
-
-        if (m_gilRelease)
-        {
-            m_gilRelease.reset(); // Возвращаем GIL основному потоку перед деструкцией
-        }
-
         if (m_pyModule)
         {
-            try
             {
-                m_pyModule.attr("stop_async_engine")();
+                py::gil_scoped_acquire acquire;
+                try
+                {
+                    m_pyModule.attr("stop_async_engine")();
+                }
+                catch (...) {}
+
+                m_pyModule = py::module_(); // Очистка модуля Python
             }
-            catch (...)
+
+            //if (m_gilRelease) {
+				m_gilRelease.reset(); // Возвращаем GIL основному потоку перед деструкцией
+            //}
+
             {
-                int s = 0; // Заглушка для отладки, если потребуется
-            }
-            m_pyModule = py::module_(); // Очистка модуля Python
-      
-            {
-                py::gil_scoped_release final_release;
+				py::gil_scoped_release join_release;
 
                 if (m_asyncThread.joinable())
                 {
                     m_asyncThread.join();
                 }
 
-                if (m_asyncThread.joinable()) {
-                    int s = 0;
-                }
             }
 
             m_pyGuard.reset(); // Корректное закрытие Python
             m_pythonHomeBuffer.reset();
         }
     }
-    catch (...) 
-    {
-		int s = 0; // Заглушка для отладки, если потребуется
-    }
+    catch (...) {}
 }
 
 bool AsyncEngine::RegisterExtensionAs(WCHAR_T** wsExtensionName)
@@ -348,17 +337,19 @@ void AsyncEngine::AsyncThreadWorker() {
     py::gil_scoped_acquire acquire;
     try 
     {
-        std::function<void(const std::wstring& ,const std::wstring&)> callback =
-            [this](const std::wstring& event, const std::wstring& data) 
+        std::function<void(const std::string& ,const std::string&)> callback =
+            [this](const std::string& event, const std::string& data) 
             {
-                this->OnAsyncResult(event, data);
+                std::wstring wEvent(event.begin(), event.end());
+                
+                std::filesystem::path pData = std::filesystem::u8path(data);
+                std::wstring wData = pData.wstring();
+
+                this->OnAsyncResult(wEvent, wData);
             };
         m_pyModule.attr("start_async_engine")(callback);
     }
-    catch (...) 
-    {
-		int s = 0; // Заглушка для отладки, если потребуется
-    }
+    catch (...) {}
 }
 
 void AsyncEngine::OnAsyncResult(const std::wstring& event, const std::wstring& data) {
@@ -403,9 +394,9 @@ bool AsyncEngine::RunPlugin(tVariant* paParams, const long lSizeArray)
         py::gil_scoped_acquire acquire;
 
         // Конвертируем в UTF-8 для Python
-        std::string pyPluginName = std::filesystem::path(cPluginName).string();
-        std::string pyTaskId = std::filesystem::path(cTaskId).string();
-        std::string pyParamsJson = std::filesystem::path(cParamsJson).string();
+        std::wstring pyPluginName(cPluginName);
+        std::wstring pyTaskId(cTaskId);
+        std::wstring pyParamsJson(cParamsJson);
 
         // Вызываем функцию маршрутизатора в async_core.py
         m_pyModule.attr("run_plugin")(pyPluginName, pyTaskId, pyParamsJson);
@@ -441,8 +432,8 @@ bool AsyncEngine::SendMessageToPlugin(tVariant* paParams, const long lSizeArray)
     {
         py::gil_scoped_acquire acquire;
 
-        std::string pyTaskId = std::filesystem::path(cTaskId).string();
-        std::string pyCommandJson = std::filesystem::path(cCommandJson).string();
+        std::wstring pyTaskId(cTaskId);
+        std::wstring pyCommandJson(cCommandJson);
 
         // Вызываем функцию маршрутизации в async_core.py
         m_pyModule.attr("send_to_plugin")(pyTaskId, pyCommandJson);
