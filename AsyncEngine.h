@@ -25,6 +25,7 @@ public:
     enum Methods
     {
         eMethInitPython = 0,
+		eMethSelfTest,
         eLastMethod     // Always last
     };
 
@@ -60,7 +61,7 @@ public:
 private:
     // Фоновые потоки и асинхронные уведомления
     void AsyncThreadWorker();
-    void OnAsyncResult(const std::wstring& resultStr);
+    void OnAsyncResult(const std::wstring& event, const std::wstring& data);
 
     // Служебные
     void addError(uint32_t wcode, const wchar_t* source, const wchar_t* descriptor, long code);
@@ -68,6 +69,7 @@ private:
 
 
     bool AsyncEngine::InitPython(tVariant* paParams, const long lSizeArray);
+    bool AsyncEngine::SelfTest();
 
     // Интерфейсы связи с платформой 1С
     IAddInDefBase* m_iConnect = nullptr;

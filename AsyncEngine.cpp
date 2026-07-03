@@ -20,7 +20,8 @@ static const wchar_t* g_PropNames[] =
 // Реестр имен методов
 static const wchar_t* g_MethodNames[] = 
 {
-    L"InitPython"
+    L"InitPython",
+	L"SelfTest",
 };
 
 
@@ -69,7 +70,10 @@ AsyncEngine::AsyncEngine()
     m_iConnect = nullptr;
 }
 
-AsyncEngine::~AsyncEngine() {}
+AsyncEngine::~AsyncEngine() 
+{
+	int s = 0; // Заглушка для отладки, если потребуется
+}
 
 bool AsyncEngine::Init(void* pConnection) 
 { 
@@ -79,11 +83,6 @@ bool AsyncEngine::Init(void* pConnection)
 
 bool AsyncEngine::InitPython(tVariant* paParams, const long lSizeArray) 
 {
-    if (lSizeArray != 3) 
-    {
-        addError(ADDIN_E_VERY_IMPORTANT, L"AsyncEngine", L"Invalid number of parameters. Expected 3.", 0);
-        return false;
-    }
     if (paParams[0].vt != VTYPE_PWSTR || paParams[1].vt != VTYPE_PWSTR || paParams[2].vt != VTYPE_PWSTR) 
     {
         addError(ADDIN_E_VERY_IMPORTANT, L"AsyncEngine", L"Invalid parameter types. Expected (String, String, String).", 0);
@@ -160,7 +159,7 @@ long AsyncEngine::GetInfo() { return 2000; } // Native API 2.0
 
 void AsyncEngine::Done()
 {
-    try 
+    try
     {
 
         if (m_gilRelease)
@@ -168,29 +167,39 @@ void AsyncEngine::Done()
             m_gilRelease.reset(); // Возвращаем GIL основному потоку перед деструкцией
         }
 
-        if (m_pyModule) 
+        if (m_pyModule)
         {
-            try 
+            try
             {
                 m_pyModule.attr("stop_async_engine")();
             }
-            catch (...) {}
-            m_pyModule.release();
-        }
-
-        {
-            py::gil_scoped_release final_release;
-
-            if (m_asyncThread.joinable())
+            catch (...)
             {
-                m_asyncThread.join();
+                int s = 0; // Заглушка для отладки, если потребуется
             }
-        }
+            m_pyModule = py::module_(); // Очистка модуля Python
+      
+            {
+                py::gil_scoped_release final_release;
 
-        m_pyGuard.reset(); // Корректное закрытие Python
-        m_pythonHomeBuffer.reset();
+                if (m_asyncThread.joinable())
+                {
+                    m_asyncThread.join();
+                }
+
+                if (m_asyncThread.joinable()) {
+                    int s = 0;
+                }
+            }
+
+            m_pyGuard.reset(); // Корректное закрытие Python
+            m_pythonHomeBuffer.reset();
+        }
     }
-    catch (...) {}
+    catch (...) 
+    {
+		int s = 0; // Заглушка для отладки, если потребуется
+    }
 }
 
 bool AsyncEngine::RegisterExtensionAs(WCHAR_T** wsExtensionName)
@@ -291,6 +300,7 @@ bool AsyncEngine::CallAsProc(const long lMethodNum, tVariant* paParams, const lo
     switch (lMethodNum) 
     {
         case eMethInitPython: return this->InitPython(paParams, lSizeArray);
+		case eMethSelfTest: return this->SelfTest();
         default: return false;
     }
 }
@@ -333,30 +343,51 @@ void AsyncEngine::AsyncThreadWorker() {
     py::gil_scoped_acquire acquire;
     try 
     {
-        std::function<void(const std::wstring&)> callback = [this](const std::wstring& data) 
+        std::function<void(const std::wstring& ,const std::wstring&)> callback =
+            [this](const std::wstring& event, const std::wstring& data) 
             {
-                this->OnAsyncResult(data);
+                this->OnAsyncResult(event, data);
             };
         m_pyModule.attr("start_async_engine")(callback);
     }
-    catch (...) {}
+    catch (...) 
+    {
+		int s = 0; // Заглушка для отладки, если потребуется
+    }
 }
 
-void AsyncEngine::OnAsyncResult(const std::wstring& resultStr) {
+void AsyncEngine::OnAsyncResult(const std::wstring& event, const std::wstring& data) {
     if (m_iConnect) 
     {
-        WCHAR_T* wSource = nullptr, * wMessage = nullptr, * wData = nullptr;
+        WCHAR_T* wSource = nullptr, * wEvent = nullptr, * wData = nullptr;
         ::convToShortWchar(&wSource, L"PythonAsyncExtension");
-        ::convToShortWchar(&wMessage, L"TaskCompleted");
-        ::convToShortWchar(&wData, resultStr.c_str());
+        ::convToShortWchar(&wEvent, event.c_str());
+        ::convToShortWchar(&wData, data.c_str());
 
         {
             py::gil_scoped_release release;
-            m_iConnect->ExternalEvent(wSource, wMessage, wData);
+            m_iConnect->ExternalEvent(wSource, wEvent, wData);
         }
 
-        delete[] wSource; delete[] wMessage; delete[] wData;
+        delete[] wSource; delete[] wEvent; delete[] wData;
     }
+}
+
+bool AsyncEngine::SelfTest()
+{
+    try 
+    {
+        py::gil_scoped_acquire acquire;
+        m_pyModule.attr("self_test")();
+    }
+    catch (py::error_already_set& e) 
+    {
+        std::string errStr = e.what();
+        std::wstring wErrStr(errStr.begin(), errStr.end());
+        addError(ADDIN_E_VERY_IMPORTANT, L"Python SelfTest Error", wErrStr.c_str(), 0);
+        return false;
+    }
+    return true;
 }
 
 uint32_t convToShortWchar(WCHAR_T** Dest, const wchar_t* Source)

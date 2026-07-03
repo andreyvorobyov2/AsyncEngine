@@ -11,6 +11,7 @@
 
 import logging
 import asyncio
+import random
 from typing import Callable, Optional
 
 # Настройка логирования для отладки
@@ -23,6 +24,18 @@ async def _keep_alive() -> None:
     """Удерживает event loop активным (заглушка)."""
     while True:
         await asyncio.sleep(3600)
+
+async def _self_test_task(task_id: int, delay: float) -> None:
+    """ Вспомогательная корутина для тестирования асинхронного движка."""
+    global _cpp_callback
+    try:
+        await asyncio.sleep(delay)
+        result_data = f"Task {task_id} completed after {delay}s. Random result: {random.randint(100, 999)}"
+        if _cpp_callback:
+            _cpp_callback('SelfTest', result_data)
+    except asyncio.CancelledError:
+        pass 
+
 
 # --- Внешний интерфейс (API для вызова из C++) ---
 
@@ -60,3 +73,12 @@ def stop_async_engine() -> None:
         # Передаем сигнал остановки цикла в потокобезопасном режиме
         _loop.call_soon_threadsafe(_loop.stop)
         logging.info("Сигнал остановки отправлен в Event Loop.")
+
+
+def self_test() -> None:
+    """Проводит тестирование асинхронного движка."""
+    global _loop
+    if _loop:
+        asyncio.run_coroutine_threadsafe(_self_test_task(1, 2.0), _loop)
+        asyncio.run_coroutine_threadsafe(_self_test_task(2, 5.0), _loop)
+        asyncio.run_coroutine_threadsafe(_self_test_task(3, 1.0), _loop)
