@@ -22,7 +22,7 @@ Procedure OnOpen(Cancel)
 	If AttachAddIn(AsyncEngineExecutable, "AddInNative", AddInType.Native) Then
 		AsyncEngineComp = New ("AddIn.AddInNative.PythonAsyncExtension");
 		Try
-			AsyncEngineComp.InitPython(PythonExecutable, PythonPath, PythonModule);
+			AsyncEngineComp.InitPython(PythonExecutable, PythonPath, PythonModule, "3.14");
 		Except
 			_DoMessage(ErrorDescription());
 		EndTry;

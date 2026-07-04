@@ -82,30 +82,46 @@ bool AsyncEngine::Init(void* pConnection)
 
 bool AsyncEngine::InitPython(tVariant* paParams, const long lSizeArray) 
 {
-    if (paParams[0].vt != VTYPE_PWSTR || paParams[1].vt != VTYPE_PWSTR || paParams[2].vt != VTYPE_PWSTR) 
+    if (lSizeArray < 4 ||
+        paParams[0].vt != VTYPE_PWSTR ||
+        paParams[1].vt != VTYPE_PWSTR ||
+        paParams[2].vt != VTYPE_PWSTR ||
+        paParams[3].vt != VTYPE_PWSTR)
     {
-        addError(ADDIN_E_VERY_IMPORTANT, L"AsyncEngine", L"Invalid parameter types. Expected (String, String, String).", 0);
+        addError(ADDIN_E_VERY_IMPORTANT, L"AsyncEngine", L"Invalid parameters. Expected (String, String, String, String).", 0);
         return false;
     }
 
     wchar_t* cStrExecutable = nullptr;
     wchar_t* cStrPath = nullptr;
     wchar_t* cStrModule = nullptr;
+    wchar_t* cStrVersion = nullptr;
 
     // Маршаллинг строк из формата 1С (UTF-16) в системный wchar_t
     convFromShortWchar(&cStrExecutable, (WCHAR_T*)paParams[0].pwstrVal);
     convFromShortWchar(&cStrPath, (WCHAR_T*)paParams[1].pwstrVal);
     convFromShortWchar(&cStrModule, (WCHAR_T*)paParams[2].pwstrVal);
+    convFromShortWchar(&cStrVersion, (WCHAR_T*)paParams[3].pwstrVal);
 
     // RAII контейнеры строк для автоматической очистки
     std::unique_ptr<wchar_t[]> autoExecutable(cStrExecutable);
     std::unique_ptr<wchar_t[]> autoPath(cStrPath);
     std::unique_ptr<wchar_t[]> autoModule(cStrModule);
+    std::unique_ptr<wchar_t[]> autoVersion(cStrVersion);
 
     std::wstring wstrPath(cStrPath);
     std::wstring wstrModule(cStrModule);
 
-    ::LoadLibraryW(L"python314.dll");
+    std::wstring wstrVersion(cStrVersion);
+    wstrVersion.erase(std::remove(wstrVersion.begin(), wstrVersion.end(), L'.'), wstrVersion.end());
+    std::wstring dllName = L"python" + wstrVersion + L".dll";
+    HMODULE hPythonDll = ::LoadLibraryW(dllName.c_str());
+    if (!hPythonDll)
+    {
+        std::wstring errMessage = L"Failed to load library: " + dllName;
+        addError(ADDIN_E_VERY_IMPORTANT, L"AsyncEngine", errMessage.c_str(), 0);
+        return false;
+    }
 
     try 
     {
@@ -273,7 +289,7 @@ const WCHAR_T* AsyncEngine::GetMethodName(const long lMethodNum, const long lMet
 
 long AsyncEngine::GetNParams(const long lMethodNum)
 {
-    if (lMethodNum == eMethInitPython) return 3;
+    if (lMethodNum == eMethInitPython) return 4;
 	if (lMethodNum == eMethRunPlugin) return 3;
 	if (lMethodNum == eMethSendMessageToPlugin) return 2;
     return 0; 
