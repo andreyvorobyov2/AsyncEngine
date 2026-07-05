@@ -1,13 +1,13 @@
 
-# import debugpy
-# try:
-#     # Открываем порт 5678 для подключения отладчика
-#     debugpy.configure(python=r"C:\Users\andrey\AppData\Local\Python\pythoncore-3.14-64\python.exe")
-#     debugpy.listen(("127.0.0.1", 5678))
-#     print("Ожидание подключения отладчика...")
-#     debugpy.wait_for_client() # Скрипт ЗАМРЕТ тут, пока вы не подключитесь из VS Code
-# except Exception as e:
-#     pass
+import debugpy
+try:
+    # Открываем порт 5678 для подключения отладчика
+    debugpy.configure(python=r"C:\Users\andrey\AppData\Local\Python\pythoncore-3.14-64\python.exe")
+    debugpy.listen(("127.0.0.1", 5678))
+    print("Ожидание подключения отладчика...")
+    debugpy.wait_for_client() # Скрипт ЗАМРЕТ тут, пока вы не подключитесь из VS Code
+except Exception as e:
+    pass
 
 import logging
 import asyncio

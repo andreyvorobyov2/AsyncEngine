@@ -64,6 +64,11 @@ async def main(params: dict, callback: callable, inbound_queue: asyncio.Queue):
         logging.info(f"Received from {sid}: {data}")
         event_data = {"from_sid": sid, "from_name": connected_users.get(sid, "Unknown"), "data": data}
         callback("MessageReceived", json.dumps(event_data, ensure_ascii=False))
+        # Отправка ВСЕМ
+        event_name = "message_from_server"
+        await sio.emit(event_name, data)
+        callback("BroadcastSent", f"Sent event '{event_name}' to all.")
+                    
 
     # --- Асинхронные задачи ---
 

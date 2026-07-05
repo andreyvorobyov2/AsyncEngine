@@ -73,8 +73,8 @@ async def main(params: dict, callback: callable, inbound_queue: asyncio.Queue):
                 action = command_data.get("action")
                 payload = command_data.get("payload", "")
 
-                if not isinstance(payload, dict):
-                    payload = {}
+                #if not isinstance(payload, dict):
+                #     # payload = {}
 
                 if action == "send":
                     # Отправка публичного сообщения в чат
